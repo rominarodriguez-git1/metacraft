@@ -12,6 +12,17 @@ const eslintConfig = [
       "coverage/**",
     ],
   },
+  {
+    rules: {
+      "no-console": "error",
+    },
+  },
+  {
+    files: ["src/lib/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

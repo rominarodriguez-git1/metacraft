@@ -13,5 +13,6 @@ export default defineConfig({
     environment: "jsdom",
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     globals: false,
+    globalSetup: ["./tests/setup/global-db.ts"],
   },
 });
