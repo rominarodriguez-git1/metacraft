@@ -15,18 +15,36 @@ const JWT_PATTERN = /\b[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 const LONG_TOKEN_PATTERN = /[A-Za-z0-9_-]{24,}/g;
 const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/g;
 const PHONE_PATTERN = /\+?\d(?:[ -]?\d){7,}/g;
+const UUID_FREE_TEXT_PATTERN = /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g;
+// \0 cannot occur in ordinary log input and falls outside every character
+// class below, so a wrapped index survives all of those patterns untouched.
+const UUID_PLACEHOLDER_PATTERN = /\0(\d+)\0/g;
 
 function isSensitiveKey(key: string): boolean {
   const lower = key.toLowerCase();
   return SENSITIVE_KEY_SUBSTRINGS.some((needle) => lower.includes(needle));
 }
 
+/**
+ * Canonical UUIDs (8-4-4-4-12 hex) are request/entity identifiers, not
+ * secrets, but their digit runs and length otherwise trip the phone and
+ * long-token patterns below. Swap each one out for a placeholder before
+ * running those patterns, then restore it afterwards.
+ */
 function redactFreeText(value: string): string {
-  return value
+  const uuids: string[] = [];
+  const withPlaceholders = value.replace(UUID_FREE_TEXT_PATTERN, (match) => {
+    uuids.push(match);
+    return `\0${uuids.length - 1}\0`;
+  });
+
+  const redacted = withPlaceholders
     .replace(EMAIL_PATTERN, REDACTED)
     .replace(JWT_PATTERN, REDACTED)
     .replace(LONG_TOKEN_PATTERN, REDACTED)
     .replace(PHONE_PATTERN, REDACTED);
+
+  return redacted.replace(UUID_PLACEHOLDER_PATTERN, (_, index: string) => uuids[Number(index)]!);
 }
 
 function redactValue(value: unknown, seen: WeakSet<object>): unknown {

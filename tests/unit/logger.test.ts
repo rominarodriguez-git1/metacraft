@@ -105,6 +105,16 @@ describe("logger", () => {
       expect(entry.message).toContain("[REDACTED]");
     });
 
+    it("keeps a canonical UUID intact while still redacting a 32-char token next to it", () => {
+      const uuid = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+      const token = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6";
+      logger.info(`request ${uuid} token=${token}`);
+      const [entry] = parseLoggedLines(consoleSpy) as [{ message: string }];
+      expect(entry.message).toContain(uuid);
+      expect(entry.message).not.toContain(token);
+      expect(entry.message).toContain("[REDACTED]");
+    });
+
     it("redacts phone numbers embedded in a message", () => {
       logger.info("call +598 99 123 456 or 099123456 for support");
       const [entry] = parseLoggedLines(consoleSpy) as [{ message: string }];

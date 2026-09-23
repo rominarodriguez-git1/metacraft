@@ -31,6 +31,21 @@ module.exports = {
         dependencyTypes: ["npm"],
       },
     },
+    {
+      name: "no-pgboss-queue-imports-outside-composition-root",
+      severity: "error",
+      comment:
+        "Only src/app and src/instrumentation.ts may import src/modules/dispatch/pgboss-queue.ts. " +
+        "Every other module must depend on the DispatchQueue port instead and receive the concrete " +
+        "queue by injection.",
+      from: {
+        path: "^src",
+        pathNot: "^src/(app|instrumentation\\.ts)",
+      },
+      to: {
+        path: "^src/modules/dispatch/pgboss-queue\\.ts",
+      },
+    },
   ],
   options: {
     tsPreCompilationDeps: true,
