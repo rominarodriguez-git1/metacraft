@@ -63,5 +63,47 @@
       "title": "No providers found",
       "description": "Try adjusting your search filters."
     }
+  },
+  "requests": {
+    "list": {
+      "title": "Your requests",
+      "empty": "You haven't sent any quote requests yet.",
+      "viewAction": "View details",
+      "createdAt": "Sent on {date, date, medium}"
+    },
+    "form": {
+      "title": "Request quotes",
+      "providersTitle": "Selected providers",
+      "removeAction": "Remove",
+      "areaLabel": "Area (m²)",
+      "materialsIncludedLabel": "Materials included",
+      "materialsYes": "Yes",
+      "materialsNo": "No",
+      "descriptionLabel": "Description",
+      "phoneLabel": "Contact phone",
+      "submit": "Send quote request",
+      "selectionHint": "Select between 2 and 5 providers to request quotes.",
+      "selectionError": "Select between 2 and 5 providers before submitting.",
+      "genericError": "We couldn't send your request. Please try again."
+    },
+    "detail": {
+      "title": "Request details",
+      "status": {
+        "pending": "Pending",
+        "sent": "Sent",
+        "failed": "Failed",
+        "responded": "Responded"
+      },
+      "materialsIncluded": {
+        "yes": "Materials included",
+        "no": "Materials not included"
+      },
+      "failureReasons": {
+        "TIMEOUT": "The provider didn't respond in time.",
+        "UPSTREAM_ERROR": "The provider's system had an error.",
+        "REJECTED": "The provider rejected the request.",
+        "INVALID_REQUEST": "The request could not be processed."
+      }
+    }
   }
 }
