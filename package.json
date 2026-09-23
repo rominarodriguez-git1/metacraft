@@ -13,22 +13,28 @@
     "lint:boundary": "depcruise --config .dependency-cruiser.cjs src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.5",
+    "better-auth": "1.7.5",
     "drizzle-orm": "0.45.3",
     "next": "16.3.6",
     "next-intl": "4.14.6",
+    "nodemailer": "10.0.10",
     "pg": "8.23.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "resend": "6.28.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.2",
+    "@types/nodemailer": "8.0.2",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
