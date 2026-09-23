@@ -16,6 +16,21 @@ module.exports = {
         path: "^src/modules/providers/adapters",
       },
     },
+    {
+      name: "no-pgboss-imports-outside-queue-module",
+      severity: "error",
+      comment:
+        "Only src/modules/dispatch/pgboss-queue.ts may import pg-boss. Every other module must " +
+        "depend on the DispatchQueue port instead.",
+      from: {
+        path: "^src",
+        pathNot: "^src/modules/dispatch/pgboss-queue\\.ts",
+      },
+      to: {
+        path: "^node_modules/pg-boss/",
+        dependencyTypes: ["npm"],
+      },
+    },
   ],
   options: {
     tsPreCompilationDeps: true,

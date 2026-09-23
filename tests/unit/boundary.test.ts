@@ -9,6 +9,7 @@ const ADAPTER_TARGET_DIR = path.join(
   REPO_ROOT,
   "src/modules/providers/adapters/__boundary_fixture__",
 );
+const PGBOSS_VIOLATING_DIR = path.join(REPO_ROOT, "src/modules/dispatch/__boundary_fixture__");
 
 function runDependencyCruiser(): { status: number | null } {
   const result = spawnSync(
@@ -23,6 +24,7 @@ describe("provider adapter import boundary", () => {
   afterEach(() => {
     rmSync(VIOLATING_DIR, { recursive: true, force: true });
     rmSync(ADAPTER_TARGET_DIR, { recursive: true, force: true });
+    rmSync(PGBOSS_VIOLATING_DIR, { recursive: true, force: true });
   });
 
   it("passes on the current tree (no module outside the registry imports an adapter)", () => {
@@ -43,6 +45,18 @@ describe("provider adapter import boundary", () => {
       path.join(VIOLATING_DIR, "violation.ts"),
       'import { boundaryFixtureAdapter } from "../adapters/__boundary_fixture__/boundary-fixture-adapter";\n' +
         "export { boundaryFixtureAdapter };\n",
+    );
+
+    const result = runDependencyCruiser();
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("fails the build when a module outside pgboss-queue.ts imports pg-boss", () => {
+    mkdirSync(PGBOSS_VIOLATING_DIR, { recursive: true });
+    writeFileSync(
+      path.join(PGBOSS_VIOLATING_DIR, "violation.ts"),
+      'import { PgBoss } from "pg-boss";\n' + "export const boss = new PgBoss(\"postgres://x\");\n",
     );
 
     const result = runDependencyCruiser();

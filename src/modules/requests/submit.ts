@@ -1,3 +1,5 @@
+import type { DispatchQueue } from "@/modules/dispatch/queue-port";
+import { pgBossDispatchQueue } from "@/modules/dispatch/pgboss-queue";
 import { listAdapters } from "@/modules/providers/registry";
 import type { Provider, SearchCriteria } from "@/modules/providers/types";
 import {
@@ -16,6 +18,7 @@ export interface SubmitQuoteRequestInput {
 
 export interface SubmitQuoteRequestDeps {
   searchProviders?: (criteria: SearchCriteria) => Promise<Provider[]>;
+  dispatchQueue?: DispatchQueue;
 }
 
 export type SubmitQuoteRequestResult =
@@ -96,6 +99,9 @@ export async function submitQuoteRequest(
     providerIds: data.providerIds,
     dispatchSourceIds,
   });
+
+  const dispatchQueue = deps.dispatchQueue ?? pgBossDispatchQueue;
+  await Promise.all(created.dispatches.map((dispatch) => dispatchQueue.enqueueDispatch(dispatch.id)));
 
   return { outcome: "created", data: created };
 }
