@@ -1,0 +1,275 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestDatabase, type TestDatabase } from "../helpers/db";
+import { clearAdapters, registerAdapter } from "@/modules/providers/registry";
+import type { ProviderAdapter } from "@/modules/providers/port";
+import type { Provider } from "@/modules/providers/types";
+import * as repository from "@/modules/requests/repository";
+import * as schema from "@/db/schema";
+
+const sessionHolder: { current: { userId: string } | null } = { current: null };
+
+vi.mock("@/modules/auth/session", () => ({
+  requireSession: vi.fn(async (options?: { api?: boolean }) => {
+    if (sessionHolder.current) {
+      return { user: { id: sessionHolder.current.userId, email: `${sessionHolder.current.userId}@example.com` } };
+    }
+    if (options?.api) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("no session");
+  }),
+}));
+
+const dbHolder: { current?: TestDatabase["db"] } = {};
+vi.mock("@/db/client", () => ({
+  get db() {
+    return dbHolder.current;
+  },
+}));
+
+const TEST_PROVIDERS: Provider[] = Array.from({ length: 5 }, (_, index) => ({
+  id: `testsrc-${index + 1}`,
+  sourceId: "testsrc",
+  name: `Test Provider ${index + 1}`,
+  trades: ["albanileria"],
+  zones: ["Centro"],
+  ratingAvg: 4.2,
+  reviewCount: 20,
+  isNew: false,
+  verified: true,
+  jobMinUyu: 10000,
+  jobMaxUyu: 120000,
+  earliestStartWeeks: 1,
+}));
+
+const testAdapter: ProviderAdapter = {
+  sourceId: "testsrc",
+  async search(): Promise<Provider[]> {
+    return TEST_PROVIDERS;
+  },
+  async dispatch(): Promise<{ status: "sent" }> {
+    return { status: "sent" };
+  },
+};
+
+function validBody(overrides: Record<string, unknown> = {}) {
+  return {
+    trade: "albanileria",
+    areaM2: 80,
+    department: "Montevideo",
+    zone: "Centro",
+    budgetMinUyu: 10000,
+    budgetMaxUyu: 50000,
+    timeline: "flexible",
+    materialsIncluded: true,
+    description: "Renovar cocina completa",
+    contactPhone: "+598 99 123 456",
+    providerIds: ["testsrc-1", "testsrc-2", "testsrc-3"],
+    ...overrides,
+  };
+}
+
+describe("POST/GET /api/requests", () => {
+  let testDb: TestDatabase;
+  let POST: typeof import("@/app/api/requests/route").POST;
+  let GET: typeof import("@/app/api/requests/[id]/route").GET;
+  let userId: string;
+
+  beforeAll(async () => {
+    testDb = await createTestDatabase();
+    dbHolder.current = testDb.db;
+    ({ POST } = await import("@/app/api/requests/route"));
+    ({ GET } = await import("@/app/api/requests/[id]/route"));
+  });
+
+  afterAll(async () => {
+    await testDb.close();
+  });
+
+  beforeEach(async () => {
+    userId = randomUUID();
+    await testDb.db.insert(schema.user).values({
+      id: userId,
+      name: "Test User",
+      email: `${userId}@example.com`,
+      emailVerified: true,
+    });
+    sessionHolder.current = { userId };
+    registerAdapter(testAdapter);
+  });
+
+  afterEach(async () => {
+    clearAdapters();
+    sessionHolder.current = null;
+    await testDb.truncateAll();
+  });
+
+  function post(body: unknown, idempotencyKey: string | null = randomUUID()) {
+    return POST(
+      new Request("http://localhost/api/requests", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+        },
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
+  function get(id: string) {
+    return GET(new Request(`http://localhost/api/requests/${id}`), { params: Promise.resolve({ id }) });
+  }
+
+  async function countRows(): Promise<{ requests: number; dispatches: number }> {
+    const requests = await testDb.db.select().from(schema.request);
+    const dispatches = await testDb.db.select().from(schema.dispatch);
+    return { requests: requests.length, dispatches: dispatches.length };
+  }
+
+  describe("validation (AC4)", () => {
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ["missing required field", { description: undefined }],
+      ["area <= 0", { areaM2: 0 }],
+      ["budget min > max", { budgetMinUyu: 60000, budgetMaxUyu: 50000 }],
+      ["unknown trade", { trade: "carpinteria" }],
+      ["unknown zone", { zone: "Not A Real Zone" }],
+      ["provider count below 2", { providerIds: ["testsrc-1"] }],
+      ["provider count above 5", { providerIds: ["testsrc-1", "testsrc-2", "testsrc-3", "testsrc-4", "testsrc-5", "testsrc-6"] }],
+    ];
+
+    for (const [label, overrides] of cases) {
+      it(`rejects ${label} with a 422 and a field-level error, without calling the repository`, async () => {
+        const insertSpy = vi.spyOn(repository, "insertRequestWithDispatches");
+
+        const response = await post(validBody(overrides));
+
+        expect(response.status).toBe(422);
+        const json = await response.json();
+        expect(json.error).toBe("ValidationError");
+        expect(Object.keys(json.fieldErrors).length).toBeGreaterThan(0);
+        expect(insertSpy).not.toHaveBeenCalled();
+
+        const { requests, dispatches } = await countRows();
+        expect(requests).toBe(0);
+        expect(dispatches).toBe(0);
+
+        insertSpy.mockRestore();
+      });
+    }
+  });
+
+  it("persists every form field and one pending dispatch per provider in a single transaction (AC5 round-trip)", async () => {
+    const body = validBody();
+
+    const response = await post(body);
+    expect(response.status).toBe(201);
+    const created = await response.json();
+
+    expect(created.trade).toBe("albanileria");
+    expect(created.areaM2).toBe(80);
+    expect(created.department).toBe("Montevideo");
+    expect(created.zone).toBe("Centro");
+    expect(created.budgetMinUyu).toBe(10000);
+    expect(created.budgetMaxUyu).toBe(50000);
+    expect(created.timeline).toBe("flexible");
+    expect(created.materialsIncluded).toBe(true);
+    expect(created.description).toBe("Renovar cocina completa");
+    expect(created.contactPhone).toBe("+59899123456");
+    expect(created.providerIds).toEqual(["testsrc-1", "testsrc-2", "testsrc-3"]);
+    expect(created.dispatches).toHaveLength(3);
+    for (const dispatch of created.dispatches) {
+      expect(dispatch.status).toBe("pending");
+      expect(dispatch.sourceId).toBe("testsrc");
+    }
+
+    const readBack = await get(created.id);
+    expect(readBack.status).toBe(200);
+    const readBackJson = await readBack.json();
+    expect(readBackJson).toEqual(created);
+
+    const { requests, dispatches } = await countRows();
+    expect(requests).toBe(1);
+    expect(dispatches).toBe(3);
+  });
+
+  it("normalizes the contact phone: strips spaces, keeps a leading + with no country-code inference", async () => {
+    const withPlus = await post(validBody({ contactPhone: "+598 99 123 456" }));
+    const createdWithPlus = await withPlus.json();
+    expect(createdWithPlus.contactPhone).toBe("+59899123456");
+
+    await testDb.truncateAll();
+    await testDb.db.insert(schema.user).values({
+      id: userId,
+      name: "Test User",
+      email: `${userId}@example.com`,
+      emailVerified: true,
+    });
+
+    const withoutPlus = await post(validBody({ contactPhone: "099 123 456" }));
+    const createdWithoutPlus = await withoutPlus.json();
+    expect(createdWithoutPlus.contactPhone).toBe("099123456");
+  });
+
+  describe("idempotency (AC6)", () => {
+    it("returns 200 with the original request and creates no new rows on an identical resubmit (whitespace + provider order only differ)", async () => {
+      const key = randomUUID();
+      const first = await post(validBody(), key);
+      expect(first.status).toBe(201);
+      const firstJson = await first.json();
+
+      const second = await post(
+        validBody({
+          description: "  Renovar cocina completa  ",
+          providerIds: ["testsrc-3", "testsrc-1", "testsrc-2"],
+        }),
+        key,
+      );
+
+      expect(second.status).toBe(200);
+      const secondJson = await second.json();
+      expect(secondJson).toEqual(firstJson);
+
+      const { requests, dispatches } = await countRows();
+      expect(requests).toBe(1);
+      expect(dispatches).toBe(3);
+    });
+
+    it("returns 409 for the same key with a different payload (e.g. a changed area)", async () => {
+      const key = randomUUID();
+      const first = await post(validBody(), key);
+      expect(first.status).toBe(201);
+
+      const second = await post(validBody({ areaM2: 999 }), key);
+      expect(second.status).toBe(409);
+
+      const { requests } = await countRows();
+      expect(requests).toBe(1);
+    });
+
+    it("scopes the idempotency key per (userId, key): a different user with the same key creates a separate request", async () => {
+      const key = randomUUID();
+      const first = await post(validBody(), key);
+      expect(first.status).toBe(201);
+
+      const otherUserId = randomUUID();
+      await testDb.db.insert(schema.user).values({
+        id: otherUserId,
+        name: "Other User",
+        email: `${otherUserId}@example.com`,
+        emailVerified: true,
+      });
+      sessionHolder.current = { userId: otherUserId };
+
+      const second = await post(validBody(), key);
+      expect(second.status).toBe(201);
+
+      const { requests } = await countRows();
+      expect(requests).toBe(2);
+    });
+  });
+});
