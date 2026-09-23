@@ -3,6 +3,9 @@ export async function register(): Promise<void> {
     return;
   }
 
+  const { loadEnv } = await import("@/lib/env");
+  loadEnv();
+
   const [{ db }, { processDispatchJob }, { reportResponse }, { startDispatchWorker }] = await Promise.all([
     import("@/db/client"),
     import("@/modules/dispatch/handler"),
