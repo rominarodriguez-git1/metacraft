@@ -1,3 +1,6 @@
+import { createCasaProAdapter } from "@/modules/providers/adapters/sim-casapro";
+import { createObraFacilAdapter } from "@/modules/providers/adapters/sim-obrafacil";
+import { createReformasYaAdapter } from "@/modules/providers/adapters/sim-reformasya";
 import type { ProviderAdapter } from "@/modules/providers/port";
 
 const adapters = new Map<string, ProviderAdapter>();
@@ -19,4 +22,10 @@ export function listAdapters(): ProviderAdapter[] {
 
 export function clearAdapters(): void {
   adapters.clear();
+}
+
+export function registerSimAdapters(): void {
+  registerAdapter(createObraFacilAdapter());
+  registerAdapter(createReformasYaAdapter());
+  registerAdapter(createCasaProAdapter());
 }
