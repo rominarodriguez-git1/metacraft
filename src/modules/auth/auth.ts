@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { magicLink } from "better-auth/plugins/magic-link";
@@ -6,21 +7,46 @@ import { APIError, createAuthMiddleware, getIP } from "better-auth/api";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { db as defaultDb } from "@/db/client";
 import * as schema from "@/db/schema";
+import { MissingEnvVarsError } from "@/lib/env";
 import { logger as appLogger, type LogFields } from "@/lib/logger";
 import { createMailer, type Mailer } from "@/modules/auth/mailer";
 import { enforceMagicLinkRateLimit, RateLimitExceededError } from "@/modules/auth/rate-limit";
 
 const MAGIC_LINK_SEND_PATH = "/sign-in/magic-link";
 const DEFAULT_BASE_URL = "http://localhost:3000";
+const BETTER_AUTH_SECRET_MIN_LENGTH = 32;
 
 export interface CreateAuthOptions {
   db: NodePgDatabase<typeof schema>;
   mailer?: Mailer;
   baseURL?: string;
+  secret?: string;
 }
 
-export function createAuth({ db, mailer = createMailer(), baseURL }: CreateAuthOptions) {
+// Better Auth falls back to its own default signing secret (and only refuses
+// to start on a missing one in production). We never let it make that call:
+// the secret is always resolved here and passed explicitly, so a missing or
+// too-short BETTER_AUTH_SECRET fails the same way in every environment that
+// actually needs one, and production can never boot on a default secret.
+function resolveAuthSecret(): string {
+  const value = process.env.BETTER_AUTH_SECRET;
+  if (value !== undefined && value !== "") {
+    if (value.length < BETTER_AUTH_SECRET_MIN_LENGTH) {
+      throw new MissingEnvVarsError(["BETTER_AUTH_SECRET"]);
+    }
+    return value;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new MissingEnvVarsError(["BETTER_AUTH_SECRET"]);
+  }
+
+  return randomBytes(BETTER_AUTH_SECRET_MIN_LENGTH).toString("hex");
+}
+
+export function createAuth({ db, mailer = createMailer(), baseURL, secret }: CreateAuthOptions) {
   return betterAuth({
+    secret: secret ?? resolveAuthSecret(),
     baseURL: baseURL ?? process.env.NEXT_PUBLIC_APP_URL ?? DEFAULT_BASE_URL,
     database: drizzleAdapter(db, { provider: "pg", schema }),
     logger: {

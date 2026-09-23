@@ -10,20 +10,34 @@ export class MissingEnvVarsError extends Error {
   }
 }
 
+const BETTER_AUTH_SECRET_MIN_LENGTH = 32;
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.string().min(1),
   EMAIL_FROM: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().min(1),
+  BETTER_AUTH_SECRET: z.string().min(BETTER_AUTH_SECRET_MIN_LENGTH),
+  RESEND_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
-const REQUIRED_KEYS = Object.keys(envSchema.shape) as Array<keyof Env>;
+const ALWAYS_REQUIRED_KEYS = [
+  "DATABASE_URL",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "EMAIL_FROM",
+  "NEXT_PUBLIC_APP_URL",
+  "BETTER_AUTH_SECRET",
+] as const satisfies ReadonlyArray<keyof Env>;
 
 export function loadEnv(source: Partial<Record<string, string>> = process.env): Env {
-  const missing = REQUIRED_KEYS.filter((key) => {
+  const requiredKeys: Array<keyof Env> =
+    source.NODE_ENV === "production" ? [...ALWAYS_REQUIRED_KEYS, "RESEND_API_KEY"] : [...ALWAYS_REQUIRED_KEYS];
+
+  const missing = requiredKeys.filter((key) => {
     const value = source[key];
     return value === undefined || value === "";
   });
