@@ -20,5 +20,48 @@
   },
   "signOut": {
     "label": "Sign out"
+  },
+  "search": {
+    "title": "Search providers",
+    "filters": {
+      "tradeLabel": "Trade",
+      "departmentLabel": "Department",
+      "zoneLabel": "Zone",
+      "budgetMinLabel": "Minimum budget (UYU)",
+      "budgetMaxLabel": "Maximum budget (UYU)",
+      "timelineLabel": "Timeline",
+      "submit": "Search"
+    },
+    "trades": {
+      "albanileria": "Masonry",
+      "pintura": "Painting",
+      "sanitaria": "Plumbing",
+      "electrica": "Electrical",
+      "reforma_integral": "Full renovation"
+    },
+    "timelines": {
+      "asap": "As soon as possible",
+      "within_1_month": "Within 1 month",
+      "within_3_months": "Within 3 months",
+      "flexible": "Flexible"
+    },
+    "notice": {
+      "partialFailure": "{count, plural, one {# source was unavailable and was excluded from the results.} other {# sources were unavailable and were excluded from the results.}}",
+      "totalFailure": "{count, plural, one {The only provider source was unavailable. Please try again in a few minutes.} other {None of the # provider sources were available. Please try again in a few minutes.}}"
+    },
+    "card": {
+      "rating": "{avg} ({count} reviews)",
+      "newBadge": "New",
+      "verifiedBadge": "Verified",
+      "source": "Source: {sourceId}"
+    },
+    "requestQuotes": {
+      "action": "Request quotes",
+      "hint": "Select between 2 and 5 providers to request quotes."
+    },
+    "empty": {
+      "title": "No providers found",
+      "description": "Try adjusting your search filters."
+    }
   }
 }

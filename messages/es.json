@@ -20,5 +20,48 @@
   },
   "signOut": {
     "label": "Cerrar sesión"
+  },
+  "search": {
+    "title": "Buscar proveedores",
+    "filters": {
+      "tradeLabel": "Rubro",
+      "departmentLabel": "Departamento",
+      "zoneLabel": "Zona",
+      "budgetMinLabel": "Presupuesto mínimo (UYU)",
+      "budgetMaxLabel": "Presupuesto máximo (UYU)",
+      "timelineLabel": "Plazo",
+      "submit": "Buscar"
+    },
+    "trades": {
+      "albanileria": "Albañilería",
+      "pintura": "Pintura",
+      "sanitaria": "Sanitaria",
+      "electrica": "Eléctrica",
+      "reforma_integral": "Reforma integral"
+    },
+    "timelines": {
+      "asap": "Lo antes posible",
+      "within_1_month": "Dentro de 1 mes",
+      "within_3_months": "Dentro de 3 meses",
+      "flexible": "Flexible"
+    },
+    "notice": {
+      "partialFailure": "{count, plural, one {# fuente no estuvo disponible y se excluyó de los resultados.} other {# fuentes no estuvieron disponibles y se excluyeron de los resultados.}}",
+      "totalFailure": "{count, plural, one {La única fuente de proveedores no estuvo disponible. Probá de nuevo en unos minutos.} other {Ninguna de las # fuentes de proveedores estuvo disponible. Probá de nuevo en unos minutos.}}"
+    },
+    "card": {
+      "rating": "{avg} ({count} reseñas)",
+      "newBadge": "Nuevo",
+      "verifiedBadge": "Verificado",
+      "source": "Fuente: {sourceId}"
+    },
+    "requestQuotes": {
+      "action": "Solicitar presupuestos",
+      "hint": "Seleccioná entre 2 y 5 proveedores para solicitar presupuestos."
+    },
+    "empty": {
+      "title": "No encontramos proveedores",
+      "description": "Probá ajustar los filtros de búsqueda."
+    }
   }
 }
