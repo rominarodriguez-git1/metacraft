@@ -54,8 +54,11 @@ function createResendMailer(apiKey: string): Mailer {
 }
 
 export function createMailer(): Mailer {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey) {
+  if (process.env.EMAIL_PROVIDER === "resend") {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      throw new Error("RESEND_API_KEY is required when EMAIL_PROVIDER=resend");
+    }
     return createResendMailer(resendApiKey);
   }
   return createSmtpMailer();
