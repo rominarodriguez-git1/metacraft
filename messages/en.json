@@ -1,0 +1,11 @@
+{
+  "home": {
+    "title": "Metacraft",
+    "description": "Renovation quote aggregator"
+  },
+  "localeSwitcher": {
+    "label": "Select language",
+    "es": "Spanish",
+    "en": "English"
+  }
+}

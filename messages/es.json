@@ -1,0 +1,11 @@
+{
+  "home": {
+    "title": "Metacraft",
+    "description": "Agregador de presupuestos de reforma"
+  },
+  "localeSwitcher": {
+    "label": "Seleccionar idioma",
+    "es": "Español",
+    "en": "Inglés"
+  }
+}

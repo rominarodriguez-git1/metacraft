@@ -23,6 +23,12 @@ const eslintConfig = [
       "no-console": "off",
     },
   },
+  {
+    files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    rules: {
+      "react/jsx-no-literals": ["error", { noStrings: true, ignoreProps: true }],
+    },
+  },
 ];
 
 export default eslintConfig;
