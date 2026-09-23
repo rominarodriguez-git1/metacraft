@@ -7,5 +7,18 @@
     "label": "Select language",
     "es": "Spanish",
     "en": "English"
+  },
+  "signIn": {
+    "title": "Sign in",
+    "emailLabel": "Email",
+    "submit": "Send sign-in link",
+    "error": "We couldn't send the link. Please try again in a few minutes."
+  },
+  "checkEmail": {
+    "title": "Check your email",
+    "description": "We sent you a sign-in link. Open it from this device to sign in."
+  },
+  "signOut": {
+    "label": "Sign out"
   }
 }

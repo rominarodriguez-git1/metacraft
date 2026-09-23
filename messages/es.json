@@ -7,5 +7,18 @@
     "label": "Seleccionar idioma",
     "es": "Español",
     "en": "Inglés"
+  },
+  "signIn": {
+    "title": "Iniciar sesión",
+    "emailLabel": "Correo electrónico",
+    "submit": "Enviar enlace de acceso",
+    "error": "No pudimos enviar el enlace. Probá de nuevo en unos minutos."
+  },
+  "checkEmail": {
+    "title": "Revisá tu correo",
+    "description": "Te enviamos un enlace de acceso. Abrilo desde este dispositivo para iniciar sesión."
+  },
+  "signOut": {
+    "label": "Cerrar sesión"
   }
 }
