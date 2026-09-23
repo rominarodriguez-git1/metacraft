@@ -4,8 +4,22 @@ import { createTestDatabase, type TestDatabase } from "../helpers/db";
 import { clearAdapters, registerAdapter } from "@/modules/providers/registry";
 import type { ProviderAdapter } from "@/modules/providers/port";
 import type { Provider } from "@/modules/providers/types";
+import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 import * as repository from "@/modules/requests/repository";
 import * as schema from "@/db/schema";
+
+/**
+ * Records every enqueued dispatch id in memory instead of touching pg-boss,
+ * so this suite never writes jobs into the shared pgboss schema (the leak
+ * that produced 386 leftover rows there before this was injected).
+ */
+class RecordingDispatchQueue implements DispatchQueue {
+  readonly enqueued: string[] = [];
+
+  async enqueueDispatch(dispatchId: string): Promise<void> {
+    this.enqueued.push(dispatchId);
+  }
+}
 
 const sessionHolder: { current: { userId: string } | null } = { current: null };
 
@@ -78,11 +92,14 @@ describe("POST/GET /api/requests", () => {
   let POST: typeof import("@/app/api/requests/route").POST;
   let GET: typeof import("@/app/api/requests/[id]/route").GET;
   let userId: string;
+  let dispatchQueue: RecordingDispatchQueue;
 
   beforeAll(async () => {
     testDb = await createTestDatabase();
     dbHolder.current = testDb.db;
-    ({ POST } = await import("@/app/api/requests/route"));
+    const { createRequestsPostHandler } = await import("@/app/api/requests/route");
+    dispatchQueue = new RecordingDispatchQueue();
+    POST = createRequestsPostHandler(dispatchQueue);
     ({ GET } = await import("@/app/api/requests/[id]/route"));
   });
 
@@ -100,6 +117,7 @@ describe("POST/GET /api/requests", () => {
     });
     sessionHolder.current = { userId };
     registerAdapter(testAdapter);
+    dispatchQueue.enqueued.length = 0;
   });
 
   afterEach(async () => {
@@ -195,6 +213,11 @@ describe("POST/GET /api/requests", () => {
     const { requests, dispatches } = await countRows();
     expect(requests).toBe(1);
     expect(dispatches).toBe(3);
+
+    expect(dispatchQueue.enqueued).toHaveLength(created.dispatches.length);
+    expect(new Set(dispatchQueue.enqueued)).toEqual(
+      new Set(created.dispatches.map((dispatch: { id: string }) => dispatch.id)),
+    );
   });
 
   it("normalizes the contact phone: strips spaces, keeps a leading + with no country-code inference", async () => {

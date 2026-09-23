@@ -4,7 +4,20 @@ import { createTestDatabase, type TestDatabase } from "../helpers/db";
 import { clearAdapters, registerAdapter } from "@/modules/providers/registry";
 import type { ProviderAdapter } from "@/modules/providers/port";
 import type { Provider } from "@/modules/providers/types";
+import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 import * as schema from "@/db/schema";
+
+/**
+ * Records every enqueued dispatch id in memory instead of touching pg-boss,
+ * so this suite never writes jobs into the shared pgboss schema.
+ */
+class RecordingDispatchQueue implements DispatchQueue {
+  readonly enqueued: string[] = [];
+
+  async enqueueDispatch(dispatchId: string): Promise<void> {
+    this.enqueued.push(dispatchId);
+  }
+}
 
 const sessionHolder: { current: { userId: string } | null } = { current: null };
 
@@ -79,11 +92,14 @@ describe("requests authorization (AC2)", () => {
   let userA: string;
   let userB: string;
   let userARequestId: string;
+  let dispatchQueue: RecordingDispatchQueue;
 
   beforeAll(async () => {
     testDb = await createTestDatabase();
     dbHolder.current = testDb.db;
-    ({ POST } = await import("@/app/api/requests/route"));
+    const { createRequestsPostHandler } = await import("@/app/api/requests/route");
+    dispatchQueue = new RecordingDispatchQueue();
+    POST = createRequestsPostHandler(dispatchQueue);
     ({ GET } = await import("@/app/api/requests/[id]/route"));
   });
 
@@ -99,6 +115,7 @@ describe("requests authorization (AC2)", () => {
       { id: userB, name: "User B", email: `${userB}@example.com`, emailVerified: true },
     ]);
     registerAdapter(testAdapter);
+    dispatchQueue.enqueued.length = 0;
 
     sessionHolder.current = { userId: userA };
     const response = await post(validBody());
@@ -156,5 +173,9 @@ describe("requests authorization (AC2)", () => {
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.id).toBe(userARequestId);
+    expect(dispatchQueue.enqueued).toHaveLength(json.dispatches.length);
+    expect(new Set(dispatchQueue.enqueued)).toEqual(
+      new Set(json.dispatches.map((dispatch: { id: string }) => dispatch.id)),
+    );
   });
 });

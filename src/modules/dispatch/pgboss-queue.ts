@@ -5,6 +5,10 @@ import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 const DEFAULT_DATABASE_URL = "postgres://metacraft:metacraft@localhost:5432/metacraft";
 const QUEUE_NAME = "dispatch";
 
+function pgBossSchema(): string {
+  return process.env.PGBOSS_SCHEMA ?? "pgboss";
+}
+
 interface DispatchJobData {
   dispatchId: string;
 }
@@ -18,7 +22,7 @@ let bossSingleton: PgBoss | undefined;
 function getBoss(): PgBoss {
   if (!bossSingleton) {
     const connectionString = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
-    bossSingleton = new PgBoss(connectionString);
+    bossSingleton = new PgBoss({ connectionString, schema: pgBossSchema() });
     bossSingleton.on("error", (error: unknown) => {
       logger.error("pg-boss error", { error });
     });
