@@ -294,5 +294,62 @@ describe("POST/GET /api/requests", () => {
       const { requests } = await countRows();
       expect(requests).toBe(2);
     });
+
+    // Both submits are held at a barrier inside provider search, which runs
+    // after the idempotency lookup and before the insert, so both are
+    // guaranteed to miss the lookup and race to the unique constraint.
+    function racingSearch(): () => Promise<Provider[]> {
+      let arrived = 0;
+      let release: () => void = () => {};
+      const bothArrived = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return async () => {
+        arrived += 1;
+        if (arrived === 2) {
+          release();
+        }
+        await bothArrived;
+        return TEST_PROVIDERS;
+      };
+    }
+
+    it("resolves two concurrent identical submits with the same key to one created and one duplicate, never a 500", async () => {
+      const { submitQuoteRequest } = await import("@/modules/requests/submit");
+      const key = randomUUID();
+      const searchProviders = racingSearch();
+      const submit = () =>
+        submitQuoteRequest(testDb.db, { userId, idempotencyKey: key, body: validBody() }, { dispatchQueue, searchProviders });
+
+      const outcomes = (await Promise.all([submit(), submit()])).map((result) => result.outcome).sort();
+
+      expect(outcomes).toEqual(["created", "duplicate"]);
+      const { requests, dispatches } = await countRows();
+      expect(requests).toBe(1);
+      expect(dispatches).toBe(3);
+    });
+
+    it("resolves two concurrent submits with the same key but different payloads to one created and one conflict", async () => {
+      const { submitQuoteRequest } = await import("@/modules/requests/submit");
+      const key = randomUUID();
+      const searchProviders = racingSearch();
+
+      const outcomes = (
+        await Promise.all([
+          submitQuoteRequest(testDb.db, { userId, idempotencyKey: key, body: validBody() }, { dispatchQueue, searchProviders }),
+          submitQuoteRequest(
+            testDb.db,
+            { userId, idempotencyKey: key, body: validBody({ areaM2: 95 }) },
+            { dispatchQueue, searchProviders },
+          ),
+        ])
+      )
+        .map((result) => result.outcome)
+        .sort();
+
+      expect(outcomes).toEqual(["conflict", "created"]);
+      const { requests } = await countRows();
+      expect(requests).toBe(1);
+    });
   });
 });

@@ -102,4 +102,20 @@ describe("magic-link rate limiting", () => {
 
     expect(JSON.stringify(newEmailError.body)).toBe(JSON.stringify(existingError.body));
   });
+
+  it("lets exactly one of five concurrent sends for the same email through the 1-per-60s window", async () => {
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () => send("concurrent@example.com", "203.0.113.6")),
+    );
+
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    const rejected = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(4);
+    for (const result of rejected) {
+      expect(result.reason).toBeInstanceOf(APIError);
+      expect((result.reason as InstanceType<typeof APIError>).statusCode).toBe(429);
+    }
+  });
 });

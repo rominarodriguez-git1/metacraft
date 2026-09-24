@@ -1,5 +1,5 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { and, count, eq, gt } from "drizzle-orm";
+import { and, count, eq, gt, sql } from "drizzle-orm";
 import { authRateLimitHit } from "@/db/schema/rate-limit";
 import type * as schema from "@/db/schema";
 
@@ -24,8 +24,11 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+// Satisfied by both the database and a transaction handle.
+type HitCounter = Pick<NodePgDatabase<typeof schema>, "select">;
+
 async function countHits(
-  db: NodePgDatabase<typeof schema>,
+  db: HitCounter,
   scope: string,
   key: string,
   since: Date,
@@ -52,22 +55,34 @@ export async function enforceMagicLinkRateLimit(
   const { ip } = params;
   const now = new Date();
 
-  const [emailShort, emailHour, ipHour] = await Promise.all([
-    countHits(db, EMAIL_SCOPE, email, new Date(now.getTime() - PER_EMAIL_SHORT_WINDOW_SECONDS * 1000)),
-    countHits(db, EMAIL_SCOPE, email, new Date(now.getTime() - PER_EMAIL_HOUR_WINDOW_SECONDS * 1000)),
-    countHits(db, IP_SCOPE, ip, new Date(now.getTime() - PER_IP_HOUR_WINDOW_SECONDS * 1000)),
-  ]);
+  // Count-then-insert must be atomic per key, or two concurrent sends for the
+  // same email both read 0 and both pass a 1-per-minute window. Transaction-
+  // scoped advisory locks serialize same-key callers; they are taken in a
+  // fixed (sorted) order so two callers can never deadlock.
+  const lockKeys = [`${EMAIL_SCOPE}:${email}`, `${IP_SCOPE}:${ip}`].sort();
 
-  if (
-    emailShort >= PER_EMAIL_SHORT_WINDOW_MAX ||
-    emailHour >= PER_EMAIL_HOUR_WINDOW_MAX ||
-    ipHour >= PER_IP_HOUR_WINDOW_MAX
-  ) {
-    throw new RateLimitExceededError();
-  }
+  await db.transaction(async (tx) => {
+    for (const lockKey of lockKeys) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    }
 
-  await db.insert(authRateLimitHit).values([
-    { scope: EMAIL_SCOPE, key: email, createdAt: now },
-    { scope: IP_SCOPE, key: ip, createdAt: now },
-  ]);
+    const [emailShort, emailHour, ipHour] = await Promise.all([
+      countHits(tx, EMAIL_SCOPE, email, new Date(now.getTime() - PER_EMAIL_SHORT_WINDOW_SECONDS * 1000)),
+      countHits(tx, EMAIL_SCOPE, email, new Date(now.getTime() - PER_EMAIL_HOUR_WINDOW_SECONDS * 1000)),
+      countHits(tx, IP_SCOPE, ip, new Date(now.getTime() - PER_IP_HOUR_WINDOW_SECONDS * 1000)),
+    ]);
+
+    if (
+      emailShort >= PER_EMAIL_SHORT_WINDOW_MAX ||
+      emailHour >= PER_EMAIL_HOUR_WINDOW_MAX ||
+      ipHour >= PER_IP_HOUR_WINDOW_MAX
+    ) {
+      throw new RateLimitExceededError();
+    }
+
+    await tx.insert(authRateLimitHit).values([
+      { scope: EMAIL_SCOPE, key: email, createdAt: now },
+      { scope: IP_SCOPE, key: ip, createdAt: now },
+    ]);
+  });
 }
