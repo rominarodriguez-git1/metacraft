@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseSimAdapterConfig } from "@/modules/providers/sim-config";
 
 export class MissingEnvVarsError extends Error {
   readonly missing: string[];
@@ -21,6 +22,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(BETTER_AUTH_SECRET_MIN_LENGTH),
   RESEND_API_KEY: z.string().min(1).optional(),
+  SIM_ADAPTER_CONFIG: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -66,6 +68,14 @@ export function loadEnv(source: Partial<Record<string, string>> = process.env): 
   if (!result.success) {
     const invalidKeys = result.error.issues.map((issue) => String(issue.path[0]));
     throw new MissingEnvVarsError(invalidKeys);
+  }
+
+  if (result.data.SIM_ADAPTER_CONFIG !== undefined) {
+    try {
+      parseSimAdapterConfig(result.data.SIM_ADAPTER_CONFIG);
+    } catch {
+      throw new MissingEnvVarsError(["SIM_ADAPTER_CONFIG"]);
+    }
   }
 
   return result.data;
