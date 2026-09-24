@@ -3,7 +3,14 @@ import { logger } from "@/lib/logger";
 import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 
 const DEFAULT_DATABASE_URL = "postgres://metacraft:metacraft@localhost:5432/metacraft";
-const QUEUE_NAME = "dispatch";
+// The "exclusive" policy keeps at most one created/retry/active job per
+// singletonKey, and every job is keyed by its dispatchId. Re-enqueueing a
+// dispatch (the stale-dispatch sweeper, a retried submit) therefore never
+// creates a second live job, so an adapter is never called twice concurrently
+// for one dispatch. A queue's policy cannot be changed after creation, hence a
+// new name. The older "dispatch" queue only ever existed in local databases.
+export const DISPATCH_QUEUE_NAME = "dispatch-exclusive";
+const QUEUE_NAME = DISPATCH_QUEUE_NAME;
 
 // pg-boss defaults (one job per worker, a 2s idle poll) processed roughly one
 // dispatch every two seconds. Several single-job workers keep per-job failure
@@ -57,7 +64,7 @@ async function prepareBoss(boss: PgBoss): Promise<void> {
   if (preparedBosses.has(boss)) {
     return;
   }
-  await boss.createQueue(QUEUE_NAME, { notify: true });
+  await boss.createQueue(QUEUE_NAME, { notify: true, policy: "exclusive" });
   await boss.updateQueue(QUEUE_NAME, { notify: true });
   preparedBosses.add(boss);
 }
@@ -67,7 +74,7 @@ export function createPgBossDispatchQueue(bossOverride?: PgBoss): DispatchQueue 
     async enqueueDispatch(dispatchId: string): Promise<void> {
       const boss = bossOverride ?? getBoss();
       await prepareBoss(boss);
-      await boss.send(QUEUE_NAME, { dispatchId } satisfies DispatchJobData);
+      await boss.send(QUEUE_NAME, { dispatchId } satisfies DispatchJobData, { singletonKey: dispatchId });
     },
   };
 }

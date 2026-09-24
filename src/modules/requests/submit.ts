@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 import { listAdapters } from "@/modules/providers/registry";
 import type { Provider, SearchCriteria } from "@/modules/providers/types";
@@ -142,7 +143,20 @@ export async function submitQuoteRequest(
     throw error;
   }
 
-  await Promise.all(created.dispatches.map((dispatch) => deps.dispatchQueue.enqueueDispatch(dispatch.id)));
+  // The request is already committed. A failed enqueue must not turn into a
+  // 500: the client would retry, hit the duplicate path, and the dispatches
+  // would stay pending. The stale-dispatch sweeper re-enqueues any pending
+  // dispatch left without a job, so a failure here is logged and recovered.
+  const enqueued = await Promise.allSettled(
+    created.dispatches.map((dispatch) => deps.dispatchQueue.enqueueDispatch(dispatch.id)),
+  );
+  const failedEnqueues = enqueued.filter((result) => result.status === "rejected").length;
+  if (failedEnqueues > 0) {
+    logger.warn("dispatch enqueue failed after commit; the sweeper will retry", {
+      requestId: created.request.id,
+      failed: failedEnqueues,
+    });
+  }
 
   return { outcome: "created", data: created };
 }

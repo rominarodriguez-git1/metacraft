@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadEnvMock = vi.fn();
 const startDispatchWorkerMock = vi.fn();
+const startMaintenanceLoopMock = vi.fn();
 
 class FakeMissingEnvVarsError extends Error {
   readonly missing: string[];
@@ -23,7 +24,10 @@ vi.mock("@/modules/dispatch/handler", () => ({ processDispatchJob: vi.fn() }));
 vi.mock("@/modules/dispatch/ingest", () => ({ reportResponse: vi.fn() }));
 vi.mock("@/modules/dispatch/pgboss-queue", () => ({
   startDispatchWorker: startDispatchWorkerMock,
+  pgBossDispatchQueue: {},
 }));
+vi.mock("@/modules/dispatch/sweeper", () => ({ requeueStalePendingDispatches: vi.fn() }));
+vi.mock("@/lib/maintenance", () => ({ startMaintenanceLoop: startMaintenanceLoopMock }));
 
 describe("instrumentation register", () => {
   const originalRuntime = process.env.NEXT_RUNTIME;
@@ -32,6 +36,7 @@ describe("instrumentation register", () => {
     vi.resetModules();
     loadEnvMock.mockReset();
     startDispatchWorkerMock.mockReset().mockResolvedValue(undefined);
+    startMaintenanceLoopMock.mockReset();
   });
 
   afterEach(() => {
@@ -64,6 +69,7 @@ describe("instrumentation register", () => {
     expect(error.message).toContain("DATABASE_URL");
     expect(error.message).not.toContain(secretValue);
     expect(startDispatchWorkerMock).not.toHaveBeenCalled();
+    expect(startMaintenanceLoopMock).not.toHaveBeenCalled();
   });
 
   it("starts the worker exactly once when the environment is valid", async () => {
@@ -77,6 +83,22 @@ describe("instrumentation register", () => {
     expect(startDispatchWorkerMock).toHaveBeenCalledTimes(1);
   });
 
+  it("starts the stale-dispatch maintenance loop after the worker when the environment is valid", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    loadEnvMock.mockReturnValue({});
+
+    const { register } = await import("@/instrumentation");
+    await register();
+
+    expect(startMaintenanceLoopMock).toHaveBeenCalledTimes(1);
+    const [tasks, intervalMs] = startMaintenanceLoopMock.mock.calls[0] as [Array<{ name: string }>, number];
+    expect(tasks.map((task) => task.name)).toContain("requeue-stale-dispatches");
+    expect(intervalMs).toBeGreaterThan(0);
+    expect(startDispatchWorkerMock.mock.invocationCallOrder[0]).toBeLessThan(
+      startMaintenanceLoopMock.mock.invocationCallOrder[0] as number,
+    );
+  });
+
   it("runs neither env validation nor worker start on the Edge runtime", async () => {
     process.env.NEXT_RUNTIME = "edge";
 
@@ -85,5 +107,6 @@ describe("instrumentation register", () => {
 
     expect(loadEnvMock).not.toHaveBeenCalled();
     expect(startDispatchWorkerMock).not.toHaveBeenCalled();
+    expect(startMaintenanceLoopMock).not.toHaveBeenCalled();
   });
 });

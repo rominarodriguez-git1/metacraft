@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, lt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@/db/schema";
 import type { DispatchStatus } from "@/modules/requests/state-machine";
@@ -223,4 +223,22 @@ export async function applyDispatchTransition(
     .returning({ id: schema.dispatch.id });
 
   return result.length > 0;
+}
+
+/**
+ * Ids of dispatches still `pending` that were created before `createdBefore`,
+ * oldest first. These are rows whose queue job was never created or was lost.
+ */
+export async function findStalePendingDispatchIds(
+  db: RequestsDb,
+  createdBefore: Date,
+  limit = 100,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: schema.dispatch.id })
+    .from(schema.dispatch)
+    .where(and(eq(schema.dispatch.status, "pending"), lt(schema.dispatch.createdAt, createdBefore)))
+    .orderBy(asc(schema.dispatch.createdAt))
+    .limit(limit);
+  return rows.map((row) => row.id);
 }

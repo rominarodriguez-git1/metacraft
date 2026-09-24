@@ -56,17 +56,29 @@ describe("startDispatchWorker (Node runtime, globalThis-guarded)", () => {
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
-  it("registers concurrent single-job workers with a short poll and a NOTIFY-enabled queue", async () => {
-    const { startDispatchWorker } = await import("@/modules/dispatch/pgboss-queue");
+  it("registers concurrent single-job workers with a short poll on an exclusive, NOTIFY-enabled queue", async () => {
+    const { startDispatchWorker, DISPATCH_QUEUE_NAME } = await import("@/modules/dispatch/pgboss-queue");
 
     await startDispatchWorker(vi.fn().mockResolvedValue(undefined));
 
     expect(workMock).toHaveBeenCalledWith(
-      "dispatch",
+      DISPATCH_QUEUE_NAME,
       { localConcurrency: 5, pollingIntervalSeconds: 0.5, notifyPollingIntervalSeconds: 0.5, batchSize: 1 },
       expect.any(Function),
     );
-    expect(createQueueMock).toHaveBeenCalledWith("dispatch", { notify: true });
-    expect(updateQueueMock).toHaveBeenCalledWith("dispatch", { notify: true });
+    expect(createQueueMock).toHaveBeenCalledWith(DISPATCH_QUEUE_NAME, { notify: true, policy: "exclusive" });
+    expect(updateQueueMock).toHaveBeenCalledWith(DISPATCH_QUEUE_NAME, { notify: true });
+  });
+
+  it("keys every job by its dispatchId so the queue can deduplicate re-enqueues", async () => {
+    const { createPgBossDispatchQueue, DISPATCH_QUEUE_NAME } = await import("@/modules/dispatch/pgboss-queue");
+
+    await createPgBossDispatchQueue().enqueueDispatch("dispatch-7");
+
+    expect(sendMock).toHaveBeenCalledWith(
+      DISPATCH_QUEUE_NAME,
+      { dispatchId: "dispatch-7" },
+      { singletonKey: "dispatch-7" },
+    );
   });
 });
