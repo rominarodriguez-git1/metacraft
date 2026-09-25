@@ -4,11 +4,13 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { nextCookies } from "better-auth/next-js";
 import { APIError, createAuthMiddleware, getIP } from "better-auth/api";
+import { parseCookies } from "better-auth/cookies";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { db as defaultDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { MissingEnvVarsError } from "@/lib/env";
 import { logger as appLogger, type LogFields } from "@/lib/logger";
+import { localeCookieName, resolveLocale, type Locale } from "@/i18n/config";
 import { createMailer, type Mailer } from "@/modules/auth/mailer";
 import { enforceMagicLinkRateLimit, RateLimitExceededError } from "@/modules/auth/rate-limit";
 
@@ -44,6 +46,15 @@ function resolveAuthSecret(): string {
   return randomBytes(BETTER_AUTH_SECRET_MIN_LENGTH).toString("hex");
 }
 
+/**
+ * The sign-in email follows the UI language: the same NEXT_LOCALE cookie,
+ * read from the request that asked for the link.
+ */
+function localeFromHeaders(headers: Headers | undefined): Locale {
+  const cookieHeader = headers?.get("cookie");
+  return resolveLocale(cookieHeader ? parseCookies(cookieHeader).get(localeCookieName) : undefined);
+}
+
 export function createAuth({ db, mailer = createMailer(), baseURL, secret }: CreateAuthOptions) {
   return betterAuth({
     secret: secret ?? resolveAuthSecret(),
@@ -77,8 +88,9 @@ export function createAuth({ db, mailer = createMailer(), baseURL, secret }: Cre
         expiresIn: 900,
         storeToken: "hashed",
         disableSignUp: false,
-        async sendMagicLink({ email, url }) {
-          await mailer.sendMagicLink({ to: email, url });
+        async sendMagicLink({ email, url }, ctx) {
+          const locale = localeFromHeaders(ctx?.headers ?? ctx?.request?.headers);
+          await mailer.sendMagicLink({ to: email, url, locale });
         },
       }),
       // Must stay last: applies the session cookie via Next's server cookie API.
