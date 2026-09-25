@@ -1,0 +1,60 @@
+/** @type {import('dependency-cruiser').IConfiguration} */
+module.exports = {
+  forbidden: [
+    {
+      name: "no-adapter-imports-outside-registry",
+      severity: "error",
+      comment:
+        "Only src/modules/providers/registry.ts may import concrete provider adapters under " +
+        "src/modules/providers/adapters. Every other module under src/modules must depend on the " +
+        "ProviderAdapter port instead.",
+      from: {
+        path: "^src/modules",
+        pathNot: "^src/modules/providers/(adapters|registry\\.ts)",
+      },
+      to: {
+        path: "^src/modules/providers/adapters",
+      },
+    },
+    {
+      name: "no-pgboss-imports-outside-queue-module",
+      severity: "error",
+      comment:
+        "Only src/modules/dispatch/pgboss-queue.ts may import pg-boss. Every other module must " +
+        "depend on the DispatchQueue port instead.",
+      from: {
+        path: "^src",
+        pathNot: "^src/modules/dispatch/pgboss-queue\\.ts",
+      },
+      to: {
+        path: "^node_modules/pg-boss/",
+        dependencyTypes: ["npm"],
+      },
+    },
+    {
+      name: "no-pgboss-queue-imports-outside-composition-root",
+      severity: "error",
+      comment:
+        "Only src/app and src/instrumentation.ts may import src/modules/dispatch/pgboss-queue.ts. " +
+        "Every other module must depend on the DispatchQueue port instead and receive the concrete " +
+        "queue by injection.",
+      from: {
+        path: "^src",
+        pathNot: "^src/(app|instrumentation\\.ts)",
+      },
+      to: {
+        path: "^src/modules/dispatch/pgboss-queue\\.ts",
+      },
+    },
+  ],
+  options: {
+    tsPreCompilationDeps: true,
+    tsConfig: {
+      fileName: "tsconfig.json",
+    },
+    enhancedResolveOptions: {
+      exportsFields: ["exports"],
+      conditionNames: ["import", "require", "node", "default"],
+    },
+  },
+};

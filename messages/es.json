@@ -1,0 +1,120 @@
+{
+  "home": {
+    "title": "Metacraft",
+    "description": "Agregador de presupuestos de reforma",
+    "signInAction": "Iniciar sesión",
+    "searchAction": "Buscar proveedores",
+    "requestsAction": "Ver mis solicitudes"
+  },
+  "nav": {
+    "label": "Navegación principal",
+    "home": "Metacraft",
+    "search": "Buscar proveedores",
+    "requests": "Mis solicitudes"
+  },
+  "localeSwitcher": {
+    "label": "Seleccionar idioma",
+    "es": "Español",
+    "en": "Inglés"
+  },
+  "signIn": {
+    "title": "Iniciar sesión",
+    "emailLabel": "Correo electrónico",
+    "submit": "Enviar enlace de acceso",
+    "error": "No pudimos enviar el enlace. Probá de nuevo en unos minutos."
+  },
+  "checkEmail": {
+    "title": "Revisá tu correo",
+    "description": "Te enviamos un enlace de acceso. Abrilo desde este dispositivo para iniciar sesión.",
+    "notReceived": "El correo puede tardar un minuto. Si no llega, revisá la carpeta de spam o verificá la dirección.",
+    "differentEmail": "Usar otro correo"
+  },
+  "signOut": {
+    "label": "Cerrar sesión"
+  },
+  "search": {
+    "title": "Buscar proveedores",
+    "filters": {
+      "tradeLabel": "Rubro",
+      "departmentLabel": "Departamento",
+      "zoneLabel": "Zona",
+      "budgetMinLabel": "Presupuesto mínimo (UYU)",
+      "budgetMaxLabel": "Presupuesto máximo (UYU)",
+      "timelineLabel": "Plazo",
+      "submit": "Buscar"
+    },
+    "trades": {
+      "albanileria": "Albañilería",
+      "pintura": "Pintura",
+      "sanitaria": "Sanitaria",
+      "electrica": "Eléctrica",
+      "reforma_integral": "Reforma integral"
+    },
+    "timelines": {
+      "asap": "Lo antes posible",
+      "within_1_month": "Dentro de 1 mes",
+      "within_3_months": "Dentro de 3 meses",
+      "flexible": "Flexible"
+    },
+    "notice": {
+      "partialFailure": "{count, plural, one {# fuente no estuvo disponible y se excluyó de los resultados.} other {# fuentes no estuvieron disponibles y se excluyeron de los resultados.}}",
+      "totalFailure": "{count, plural, one {La única fuente de proveedores no estuvo disponible. Probá de nuevo en unos minutos.} other {Ninguna de las # fuentes de proveedores estuvo disponible. Probá de nuevo en unos minutos.}}"
+    },
+    "card": {
+      "rating": "{avg} ({count} reseñas)",
+      "newBadge": "Nuevo",
+      "verifiedBadge": "Verificado",
+      "source": "Fuente: {sourceId}"
+    },
+    "requestQuotes": {
+      "action": "Solicitar presupuestos",
+      "hint": "Seleccioná entre 2 y 5 proveedores para solicitar presupuestos."
+    },
+    "empty": {
+      "title": "No encontramos proveedores",
+      "description": "Probá ajustar los filtros de búsqueda."
+    }
+  },
+  "requests": {
+    "list": {
+      "title": "Tus solicitudes",
+      "empty": "Todavía no enviaste ninguna solicitud de presupuesto.",
+      "viewAction": "Ver detalle",
+      "createdAt": "Enviada el {date, date, medium}"
+    },
+    "form": {
+      "title": "Solicitar presupuestos",
+      "providersTitle": "Proveedores seleccionados",
+      "removeAction": "Quitar",
+      "areaLabel": "Área (m²)",
+      "materialsIncludedLabel": "Materiales incluidos",
+      "materialsYes": "Sí",
+      "materialsNo": "No",
+      "descriptionLabel": "Descripción",
+      "phoneLabel": "Teléfono de contacto",
+      "submit": "Enviar solicitud",
+      "selectionHint": "Seleccioná entre 2 y 5 proveedores para solicitar presupuestos.",
+      "selectionError": "Seleccioná entre 2 y 5 proveedores antes de enviar.",
+      "genericError": "No pudimos enviar tu solicitud. Probá de nuevo."
+    },
+    "detail": {
+      "title": "Detalle de la solicitud",
+      "status": {
+        "pending": "Pendiente",
+        "sent": "Enviado",
+        "failed": "Fallido",
+        "responded": "Respondido"
+      },
+      "materialsIncluded": {
+        "yes": "Materiales incluidos",
+        "no": "Materiales no incluidos"
+      },
+      "failureReasons": {
+        "TIMEOUT": "El proveedor no respondió a tiempo.",
+        "UPSTREAM_ERROR": "El sistema del proveedor tuvo un error.",
+        "REJECTED": "El proveedor rechazó la solicitud.",
+        "INVALID_REQUEST": "La solicitud no pudo procesarse."
+      }
+    }
+  }
+}

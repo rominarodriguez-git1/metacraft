@@ -1,0 +1,87 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const REPO_ROOT = path.resolve(__dirname, "../..");
+const VIOLATING_DIR = path.join(REPO_ROOT, "src/modules/providers/__boundary_fixture__");
+const ADAPTER_TARGET_DIR = path.join(
+  REPO_ROOT,
+  "src/modules/providers/adapters/__boundary_fixture__",
+);
+const PGBOSS_VIOLATING_DIR = path.join(REPO_ROOT, "src/modules/dispatch/__boundary_fixture__");
+const PGBOSS_QUEUE_VIOLATING_DIR = path.join(REPO_ROOT, "src/modules/requests/__boundary_fixture__");
+
+// Each run cruises the whole src tree (~4s alone), which sits right at vitest's
+// 5s default and times out when the suite runs files in parallel. Call the local
+// binary (no npx startup) and give the block an explicit budget.
+const DEPCRUISE_BIN = path.join(REPO_ROOT, "node_modules/.bin/depcruise");
+const BOUNDARY_TEST_TIMEOUT_MS = 60_000;
+
+function runDependencyCruiser(): { status: number | null } {
+  const result = spawnSync(
+    DEPCRUISE_BIN,
+    ["--config", ".dependency-cruiser.cjs", "src"],
+    { cwd: REPO_ROOT, stdio: "pipe" },
+  );
+  return { status: result.status };
+}
+
+describe("provider adapter import boundary", { timeout: BOUNDARY_TEST_TIMEOUT_MS }, () => {
+  afterEach(() => {
+    rmSync(VIOLATING_DIR, { recursive: true, force: true });
+    rmSync(ADAPTER_TARGET_DIR, { recursive: true, force: true });
+    rmSync(PGBOSS_VIOLATING_DIR, { recursive: true, force: true });
+    rmSync(PGBOSS_QUEUE_VIOLATING_DIR, { recursive: true, force: true });
+  });
+
+  it("passes on the current tree (no module outside the registry imports an adapter)", () => {
+    const result = runDependencyCruiser();
+
+    expect(result.status).toBe(0);
+  });
+
+  it("fails the build when a non-registry module under src/modules imports a concrete adapter", () => {
+    mkdirSync(ADAPTER_TARGET_DIR, { recursive: true });
+    writeFileSync(
+      path.join(ADAPTER_TARGET_DIR, "boundary-fixture-adapter.ts"),
+      "export const boundaryFixtureAdapter = { sourceId: \"boundary-fixture\" };\n",
+    );
+
+    mkdirSync(VIOLATING_DIR, { recursive: true });
+    writeFileSync(
+      path.join(VIOLATING_DIR, "violation.ts"),
+      'import { boundaryFixtureAdapter } from "../adapters/__boundary_fixture__/boundary-fixture-adapter";\n' +
+        "export { boundaryFixtureAdapter };\n",
+    );
+
+    const result = runDependencyCruiser();
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("fails the build when a module outside pgboss-queue.ts imports pg-boss", () => {
+    mkdirSync(PGBOSS_VIOLATING_DIR, { recursive: true });
+    writeFileSync(
+      path.join(PGBOSS_VIOLATING_DIR, "violation.ts"),
+      'import { PgBoss } from "pg-boss";\n' + "export const boss = new PgBoss(\"postgres://x\");\n",
+    );
+
+    const result = runDependencyCruiser();
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("fails the build when a module outside src/app and src/instrumentation.ts imports pgboss-queue.ts", () => {
+    mkdirSync(PGBOSS_QUEUE_VIOLATING_DIR, { recursive: true });
+    writeFileSync(
+      path.join(PGBOSS_QUEUE_VIOLATING_DIR, "violation.ts"),
+      'import { pgBossDispatchQueue } from "../../dispatch/pgboss-queue";\n' +
+        "export { pgBossDispatchQueue };\n",
+    );
+
+    const result = runDependencyCruiser();
+
+    expect(result.status).not.toBe(0);
+  });
+});
