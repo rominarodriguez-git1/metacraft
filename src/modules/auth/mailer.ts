@@ -17,11 +17,24 @@ function subjectAndHtml(url: string): { subject: string; html: string } {
   };
 }
 
+const LOCAL_SMTP_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+/**
+ * True for a host on this machine (Mailpit in development and tests). Any other
+ * SMTP server must use STARTTLS, or a network attacker could strip the upgrade
+ * and read the magic links and SMTP credentials in plaintext.
+ */
+export function isLocalSmtpHost(host: string | undefined): boolean {
+  return host !== undefined && LOCAL_SMTP_HOSTS.has(host.trim().toLowerCase());
+}
+
 function createSmtpMailer(): Mailer {
+  const host = process.env.SMTP_HOST;
   const transport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host,
     port: Number(process.env.SMTP_PORT),
     secure: false,
+    requireTLS: !isLocalSmtpHost(host),
   });
 
   return {

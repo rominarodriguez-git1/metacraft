@@ -56,4 +56,19 @@ describe("createMailer", () => {
     expect(createTransportMock).not.toHaveBeenCalled();
     expect(sendMailMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["a remote SMTP host", "smtp.example.com", true],
+    ["localhost (Mailpit)", "localhost", false],
+    ["127.0.0.1", "127.0.0.1", false],
+  ])("requires STARTTLS for %s: requireTLS=%s", async (_label, host, requireTLS) => {
+    vi.stubEnv("EMAIL_PROVIDER", "smtp");
+    vi.stubEnv("SMTP_HOST", host);
+    vi.stubEnv("SMTP_PORT", "587");
+
+    const { createMailer } = await import("@/modules/auth/mailer");
+    createMailer();
+
+    expect(createTransportMock).toHaveBeenCalledWith(expect.objectContaining({ host, requireTLS }));
+  });
 });
