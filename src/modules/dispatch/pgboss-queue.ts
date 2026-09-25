@@ -36,7 +36,7 @@ interface DispatchJobData {
 }
 
 declare global {
-  var __metacraftDispatchWorkerStarted: boolean | undefined;
+  var __metacraftDispatchWorkerStarted: Promise<void> | undefined;
 }
 
 let bossSingleton: PgBoss | undefined;
@@ -87,21 +87,36 @@ export const pgBossDispatchQueue: DispatchQueue = createPgBossDispatchQueue();
  * instrumentation.ts's register() hook, which the runtime may invoke more
  * than once per process, only ever registers the boss.work handler a single
  * time.
+ *
+ * The guard holds the in-flight start promise rather than a boolean: callers
+ * that arrive concurrently share one registration, and a start that fails
+ * (for example pg-boss cannot reach the database) clears the guard, so a later
+ * call can retry instead of the process silently running with no worker.
  */
-export async function startDispatchWorker(
+export function startDispatchWorker(
   handler: (dispatchId: string) => Promise<void>,
   bossOverride?: PgBoss,
 ): Promise<void> {
-  if (globalThis.__metacraftDispatchWorkerStarted) {
-    return;
+  const inFlight = globalThis.__metacraftDispatchWorkerStarted;
+  if (inFlight) {
+    return inFlight;
   }
-  globalThis.__metacraftDispatchWorkerStarted = true;
 
-  const boss = bossOverride ?? getBoss();
-  await prepareBoss(boss);
-  await boss.work<DispatchJobData>(QUEUE_NAME, DISPATCH_WORK_OPTIONS, async (jobs) => {
-    for (const job of jobs) {
-      await handler(job.data.dispatchId);
+  const start = (async () => {
+    const boss = bossOverride ?? getBoss();
+    await prepareBoss(boss);
+    await boss.work<DispatchJobData>(QUEUE_NAME, DISPATCH_WORK_OPTIONS, async (jobs) => {
+      for (const job of jobs) {
+        await handler(job.data.dispatchId);
+      }
+    });
+  })();
+
+  globalThis.__metacraftDispatchWorkerStarted = start;
+  start.catch(() => {
+    if (globalThis.__metacraftDispatchWorkerStarted === start) {
+      globalThis.__metacraftDispatchWorkerStarted = undefined;
     }
   });
+  return start;
 }

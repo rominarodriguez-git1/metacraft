@@ -70,6 +70,27 @@ describe("startDispatchWorker (Node runtime, globalThis-guarded)", () => {
     expect(updateQueueMock).toHaveBeenCalledWith(DISPATCH_QUEUE_NAME, { notify: true });
   });
 
+  it("shares one registration between concurrent start calls", async () => {
+    const { startDispatchWorker } = await import("@/modules/dispatch/pgboss-queue");
+    const handler = vi.fn().mockResolvedValue(undefined);
+
+    await Promise.all([startDispatchWorker(handler), startDispatchWorker(handler)]);
+
+    expect(workMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a later call retry after a failed start instead of leaving the process without a worker", async () => {
+    const { startDispatchWorker } = await import("@/modules/dispatch/pgboss-queue");
+    const handler = vi.fn().mockResolvedValue(undefined);
+    startMock.mockRejectedValueOnce(new Error("database unreachable"));
+
+    await expect(startDispatchWorker(handler)).rejects.toThrow("database unreachable");
+    expect(workMock).not.toHaveBeenCalled();
+
+    await startDispatchWorker(handler);
+    expect(workMock).toHaveBeenCalledTimes(1);
+  });
+
   it("keys every job by its dispatchId so the queue can deduplicate re-enqueues", async () => {
     const { createPgBossDispatchQueue, DISPATCH_QUEUE_NAME } = await import("@/modules/dispatch/pgboss-queue");
 
