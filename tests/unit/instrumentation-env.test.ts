@@ -27,6 +27,7 @@ vi.mock("@/modules/dispatch/pgboss-queue", () => ({
   pgBossDispatchQueue: {},
 }));
 vi.mock("@/modules/dispatch/sweeper", () => ({ requeueStalePendingDispatches: vi.fn() }));
+vi.mock("@/modules/auth/rate-limit-retention", () => ({ pruneRateLimitHits: vi.fn() }));
 vi.mock("@/lib/maintenance", () => ({ startMaintenanceLoop: startMaintenanceLoopMock }));
 
 describe("instrumentation register", () => {
@@ -92,7 +93,9 @@ describe("instrumentation register", () => {
 
     expect(startMaintenanceLoopMock).toHaveBeenCalledTimes(1);
     const [tasks, intervalMs] = startMaintenanceLoopMock.mock.calls[0] as [Array<{ name: string }>, number];
-    expect(tasks.map((task) => task.name)).toContain("requeue-stale-dispatches");
+    expect(tasks.map((task) => task.name)).toEqual(
+      expect.arrayContaining(["requeue-stale-dispatches", "prune-rate-limit-hits"]),
+    );
     expect(intervalMs).toBeGreaterThan(0);
     expect(startDispatchWorkerMock.mock.invocationCallOrder[0]).toBeLessThan(
       startMaintenanceLoopMock.mock.invocationCallOrder[0] as number,

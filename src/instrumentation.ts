@@ -12,6 +12,7 @@ export async function register(): Promise<void> {
     { reportResponse },
     { startDispatchWorker, pgBossDispatchQueue },
     { requeueStalePendingDispatches },
+    { pruneRateLimitHits },
     { startMaintenanceLoop },
   ] = await Promise.all([
     import("@/db/client"),
@@ -19,6 +20,7 @@ export async function register(): Promise<void> {
     import("@/modules/dispatch/ingest"),
     import("@/modules/dispatch/pgboss-queue"),
     import("@/modules/dispatch/sweeper"),
+    import("@/modules/auth/rate-limit-retention"),
     import("@/lib/maintenance"),
   ]);
 
@@ -28,9 +30,13 @@ export async function register(): Promise<void> {
     }),
   );
 
-  // Recovers dispatches whose queue job was never created or was lost.
+  // Periodic upkeep: recover dispatches whose queue job was never created or
+  // was lost, and keep the rate-limit hit table from growing without bound.
   startMaintenanceLoop(
-    [{ name: "requeue-stale-dispatches", run: () => requeueStalePendingDispatches(db, pgBossDispatchQueue) }],
+    [
+      { name: "requeue-stale-dispatches", run: () => requeueStalePendingDispatches(db, pgBossDispatchQueue) },
+      { name: "prune-rate-limit-hits", run: () => pruneRateLimitHits(db) },
+    ],
     MAINTENANCE_INTERVAL_MS,
   );
 }
