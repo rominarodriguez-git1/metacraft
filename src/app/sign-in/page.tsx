@@ -19,7 +19,7 @@ export default function SignInPage() {
 
     const { error: signInError } = await authClient.signIn.magicLink({
       email,
-      callbackURL: "/",
+      callbackURL: "/search",
     });
 
     setIsSubmitting(false);

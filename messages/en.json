@@ -1,7 +1,16 @@
 {
   "home": {
     "title": "Metacraft",
-    "description": "Renovation quote aggregator"
+    "description": "Renovation quote aggregator",
+    "signInAction": "Sign in",
+    "searchAction": "Search providers",
+    "requestsAction": "View my requests"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "home": "Metacraft",
+    "search": "Search providers",
+    "requests": "My requests"
   },
   "localeSwitcher": {
     "label": "Select language",
@@ -16,7 +25,9 @@
   },
   "checkEmail": {
     "title": "Check your email",
-    "description": "We sent you a sign-in link. Open it from this device to sign in."
+    "description": "We sent you a sign-in link. Open it from this device to sign in.",
+    "notReceived": "The email can take a minute. If it doesn't arrive, check your spam folder or check the address.",
+    "differentEmail": "Use a different email"
   },
   "signOut": {
     "label": "Sign out"

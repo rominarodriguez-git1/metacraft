@@ -1,7 +1,16 @@
 {
   "home": {
     "title": "Metacraft",
-    "description": "Agregador de presupuestos de reforma"
+    "description": "Agregador de presupuestos de reforma",
+    "signInAction": "Iniciar sesión",
+    "searchAction": "Buscar proveedores",
+    "requestsAction": "Ver mis solicitudes"
+  },
+  "nav": {
+    "label": "Navegación principal",
+    "home": "Metacraft",
+    "search": "Buscar proveedores",
+    "requests": "Mis solicitudes"
   },
   "localeSwitcher": {
     "label": "Seleccionar idioma",
@@ -16,7 +25,9 @@
   },
   "checkEmail": {
     "title": "Revisá tu correo",
-    "description": "Te enviamos un enlace de acceso. Abrilo desde este dispositivo para iniciar sesión."
+    "description": "Te enviamos un enlace de acceso. Abrilo desde este dispositivo para iniciar sesión.",
+    "notReceived": "El correo puede tardar un minuto. Si no llega, revisá la carpeta de spam o verificá la dirección.",
+    "differentEmail": "Usar otro correo"
   },
   "signOut": {
     "label": "Cerrar sesión"
