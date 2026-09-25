@@ -11,7 +11,7 @@ export class MissingDatabaseUrlError extends Error {
  * connection string, and a missing value fails loudly instead of silently
  * connecting somewhere unintended.
  */
-export function requireDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string {
+export function requireDatabaseUrl(env: Partial<Record<string, string>> = process.env): string {
   const url = env.DATABASE_URL;
   if (!url) {
     throw new MissingDatabaseUrlError();

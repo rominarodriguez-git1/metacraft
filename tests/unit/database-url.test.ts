@@ -3,14 +3,14 @@ import { MissingDatabaseUrlError, requireDatabaseUrl } from "@/db/database-url";
 
 describe("requireDatabaseUrl", () => {
   it("returns DATABASE_URL when it is set", () => {
-    expect(requireDatabaseUrl({ DATABASE_URL: "postgres://example/db" } as NodeJS.ProcessEnv)).toBe(
+    expect(requireDatabaseUrl({ DATABASE_URL: "postgres://example/db" })).toBe(
       "postgres://example/db",
     );
   });
 
   it("throws a named error instead of falling back to a built-in connection string", () => {
-    expect(() => requireDatabaseUrl({} as NodeJS.ProcessEnv)).toThrow(MissingDatabaseUrlError);
-    expect(() => requireDatabaseUrl({ DATABASE_URL: "" } as NodeJS.ProcessEnv)).toThrow(/DATABASE_URL/);
+    expect(() => requireDatabaseUrl({})).toThrow(MissingDatabaseUrlError);
+    expect(() => requireDatabaseUrl({ DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
   });
 });
 
