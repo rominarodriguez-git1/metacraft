@@ -6,6 +6,18 @@ import type { Department, Timeline, Trade } from "@/modules/providers/types";
 const MIN_PROVIDERS = 2;
 const MAX_PROVIDERS = 5;
 
+// Every field is bounded to what storage accepts and what a real request
+// needs. Area and budgets are Postgres integer columns, so a fractional or
+// out-of-range value must be a 422 here, never a database error.
+export const INPUT_LIMITS = {
+  areaM2Max: 100_000,
+  budgetUyuMax: 1_000_000_000,
+  descriptionMaxChars: 2_000,
+  contactPhoneMaxChars: 32,
+  zoneMaxChars: 64,
+  providerIdMaxChars: 128,
+} as const;
+
 function normalizePhone(raw: string): string {
   const trimmed = raw.trim();
   const digits = trimmed.replace(/[^\d]/g, "");
@@ -15,24 +27,44 @@ function normalizePhone(raw: string): string {
 export const quoteRequestInputSchema = z
   .object({
     trade: z.enum(TRADES as [Trade, ...Trade[]], { error: "Unknown trade" }),
-    areaM2: z.number({ error: "Area is required" }).positive({ message: "Area must be greater than 0" }),
+    areaM2: z
+      .number({ error: "Area is required" })
+      .int({ message: "Area must be a whole number of square metres" })
+      .positive({ message: "Area must be greater than 0" })
+      .max(INPUT_LIMITS.areaM2Max, { message: `Area must be at most ${INPUT_LIMITS.areaM2Max} m²` }),
     department: z.enum(DEPARTMENTS as [Department, ...Department[]], { error: "Unknown department" }),
-    zone: z.string({ error: "Zone is required" }).trim().min(1, { message: "Zone is required" }),
-    budgetMinUyu: z.number({ error: "Minimum budget is required" }).nonnegative(),
-    budgetMaxUyu: z.number({ error: "Maximum budget is required" }).nonnegative(),
+    zone: z
+      .string({ error: "Zone is required" })
+      .trim()
+      .min(1, { message: "Zone is required" })
+      .max(INPUT_LIMITS.zoneMaxChars, { message: "Unknown zone for the selected department" }),
+    budgetMinUyu: z
+      .number({ error: "Minimum budget is required" })
+      .int({ message: "Budget must be a whole number" })
+      .nonnegative()
+      .max(INPUT_LIMITS.budgetUyuMax, { message: "Budget is too large" }),
+    budgetMaxUyu: z
+      .number({ error: "Maximum budget is required" })
+      .int({ message: "Budget must be a whole number" })
+      .nonnegative()
+      .max(INPUT_LIMITS.budgetUyuMax, { message: "Budget is too large" }),
     timeline: z.enum(TIMELINES as [Timeline, ...Timeline[]], { error: "Unknown timeline" }),
     materialsIncluded: z.boolean({ error: "materialsIncluded is required" }),
     description: z
       .string({ error: "Description is required" })
       .trim()
-      .min(1, { message: "Description is required" }),
+      .min(1, { message: "Description is required" })
+      .max(INPUT_LIMITS.descriptionMaxChars, {
+        message: `Description must be at most ${INPUT_LIMITS.descriptionMaxChars} characters`,
+      }),
     contactPhone: z
       .string({ error: "Contact phone is required" })
       .trim()
       .min(1, { message: "Contact phone is required" })
+      .max(INPUT_LIMITS.contactPhoneMaxChars, { message: "Contact phone is too long" })
       .transform(normalizePhone),
     providerIds: z
-      .array(z.string().trim().min(1), { error: "Select 2 to 5 providers" })
+      .array(z.string().trim().min(1).max(INPUT_LIMITS.providerIdMaxChars), { error: "Select 2 to 5 providers" })
       .min(MIN_PROVIDERS, { message: `Select at least ${MIN_PROVIDERS} providers` })
       .max(MAX_PROVIDERS, { message: `Select at most ${MAX_PROVIDERS} providers` })
       .transform((ids) => Array.from(new Set(ids)).sort()),

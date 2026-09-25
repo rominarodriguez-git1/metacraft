@@ -158,6 +158,15 @@ describe("POST/GET /api/requests", () => {
       ["unknown zone", { zone: "Not A Real Zone" }],
       ["provider count below 2", { providerIds: ["testsrc-1"] }],
       ["provider count above 5", { providerIds: ["testsrc-1", "testsrc-2", "testsrc-3", "testsrc-4", "testsrc-5", "testsrc-6"] }],
+      // Bounds: storage is integer columns and free text must not be unbounded.
+      ["fractional area (integer column)", { areaM2: 20.5 }],
+      ["area above the maximum", { areaM2: 100_001 }],
+      ["budget above the maximum", { budgetMinUyu: 0, budgetMaxUyu: 1_000_000_001 }],
+      ["fractional budget", { budgetMinUyu: 10000.5 }],
+      ["description longer than 2000 characters", { description: "a".repeat(2001) }],
+      ["contact phone longer than 32 characters", { contactPhone: "1".repeat(33) }],
+      ["zone longer than 64 characters", { zone: "z".repeat(65) }],
+      ["provider id longer than 128 characters", { providerIds: ["testsrc-1", "p".repeat(129)] }],
     ];
 
     for (const [label, overrides] of cases) {
@@ -239,6 +248,23 @@ describe("POST/GET /api/requests", () => {
   });
 
   describe("idempotency (AC6)", () => {
+    const badKeys: Array<[string, string | null, string]> = [
+      ["a missing key", null, "MissingIdempotencyKey"],
+      ["a key that is not a UUID", "not-a-uuid", "InvalidIdempotencyKey"],
+      ["an oversized key", "a".repeat(10_000), "InvalidIdempotencyKey"],
+    ];
+
+    for (const [label, key, error] of badKeys) {
+      it(`rejects ${label} with a 400 and stores nothing`, async () => {
+        const response = await post(validBody(), key);
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({ error });
+        const { requests } = await countRows();
+        expect(requests).toBe(0);
+      });
+    }
+
     it("returns 200 with the original request and creates no new rows on an identical resubmit (whitespace + provider order only differ)", async () => {
       const key = randomUUID();
       const first = await post(validBody(), key);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DEPARTMENTS, TIMELINES, TRADES, ZONES_BY_DEPARTMENT } from "@/modules/providers/reference-data";
 import type { Department, SearchCriteria, Timeline, Trade } from "@/modules/providers/types";
+import { INPUT_LIMITS } from "@/modules/requests/schema";
 
 const tradeEnum = z.enum(TRADES as [Trade, ...Trade[]]);
 const departmentEnum = z.enum(DEPARTMENTS as [Department, ...Department[]]);
@@ -9,9 +10,9 @@ const timelineEnum = z.enum(TIMELINES as [Timeline, ...Timeline[]]);
 const rawSearchParamsSchema = z.object({
   trade: tradeEnum,
   department: departmentEnum,
-  zone: z.string().trim().min(1),
-  budgetMinUyu: z.coerce.number().int().nonnegative(),
-  budgetMaxUyu: z.coerce.number().int().nonnegative(),
+  zone: z.string().trim().min(1).max(INPUT_LIMITS.zoneMaxChars),
+  budgetMinUyu: z.coerce.number().int().nonnegative().max(INPUT_LIMITS.budgetUyuMax),
+  budgetMaxUyu: z.coerce.number().int().nonnegative().max(INPUT_LIMITS.budgetUyuMax),
   timeline: timelineEnum,
 });
 

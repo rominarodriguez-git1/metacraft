@@ -6,6 +6,9 @@ import { pgBossDispatchQueue } from "@/modules/dispatch/pgboss-queue";
 import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 
 const IDEMPOTENCY_KEY_HEADER = "idempotency-key";
+// The form generates the key with crypto.randomUUID(), so anything else,
+// including an arbitrarily long header, is rejected before it is stored.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -29,6 +32,9 @@ export function createRequestsPostHandler(dispatchQueue: DispatchQueue) {
     const idempotencyKey = request.headers.get(IDEMPOTENCY_KEY_HEADER);
     if (!idempotencyKey) {
       return jsonResponse({ error: "MissingIdempotencyKey" }, 400);
+    }
+    if (!UUID_PATTERN.test(idempotencyKey)) {
+      return jsonResponse({ error: "InvalidIdempotencyKey" }, 400);
     }
 
     let body: unknown;
