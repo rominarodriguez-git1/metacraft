@@ -32,6 +32,11 @@
   "signOut": {
     "label": "Cerrar sesión"
   },
+  "magicLinkEmail": {
+    "subject": "Iniciá sesión en Metacraft",
+    "intro": "Hacé clic en el enlace para iniciar sesión en Metacraft.",
+    "expiry": "El enlace vence en 15 minutos y solo se puede usar una vez."
+  },
   "search": {
     "title": "Buscar proveedores",
     "filters": {

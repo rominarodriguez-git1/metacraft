@@ -32,6 +32,11 @@
   "signOut": {
     "label": "Sign out"
   },
+  "magicLinkEmail": {
+    "subject": "Sign in to Metacraft",
+    "intro": "Click the link below to sign in to Metacraft.",
+    "expiry": "This link expires in 15 minutes and can only be used once."
+  },
   "search": {
     "title": "Search providers",
     "filters": {
