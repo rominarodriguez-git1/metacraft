@@ -20,7 +20,17 @@ async function expectNoHorizontalScroll(page: Page): Promise<void> {
 }
 
 async function expectOneLocaleSwitcher(page: Page): Promise<void> {
-  await expect(page.getByRole("group", { name: /Seleccionar idioma|Select language/ })).toHaveCount(1);
+  const switcher = page.getByRole("group", { name: /Seleccionar idioma|Select language/ });
+  await expect(switcher).toHaveCount(1);
+  // The two language buttons must not touch, or they read as one word.
+  const [first, second] = await Promise.all([
+    switcher.getByRole("button").nth(0).boundingBox(),
+    switcher.getByRole("button").nth(1).boundingBox(),
+  ]);
+  expect(first, "first language button is visible").not.toBeNull();
+  expect(second, "second language button is visible").not.toBeNull();
+  const gap = Math.max(second!.x - (first!.x + first!.width), second!.y - (first!.y + first!.height));
+  expect(gap, "space between the language buttons").toBeGreaterThanOrEqual(4);
 }
 
 async function signIn(page: Page, email: string): Promise<void> {

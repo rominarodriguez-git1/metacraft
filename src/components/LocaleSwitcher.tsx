@@ -20,11 +20,12 @@ export function LocaleSwitcher() {
   }
 
   return (
-    <div role="group" aria-label={t("label")}>
+    <div role="group" aria-label={t("label")} className="flex items-center gap-2">
       {locales.map((option) => (
         <button
           key={option}
           type="button"
+          className="rounded border px-2 py-1 aria-pressed:font-semibold"
           onClick={() => handleChange(option)}
           disabled={isPending || option === locale}
           aria-pressed={option === locale}
