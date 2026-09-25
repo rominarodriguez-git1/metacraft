@@ -9,6 +9,7 @@ interface SentLink {
   email: string;
   url: string;
   token: string;
+  locale: string;
 }
 
 const REQUEST_IP = "203.0.113.10";
@@ -31,12 +32,12 @@ describe("magic-link auth", () => {
     auth = createAuth({
       db: testDb.db,
       mailer: {
-        async sendMagicLink({ to, url }) {
+        async sendMagicLink({ to, url, locale }) {
           const token = new URL(url).searchParams.get("token");
           if (!token) {
             throw new Error("magic link url missing token");
           }
-          sentLinks.push({ email: to, url, token });
+          sentLinks.push({ email: to, url, token, locale });
         },
       },
     });
@@ -65,6 +66,38 @@ describe("magic-link auth", () => {
       headers: new Headers(),
     });
   }
+
+  // The sign-in email follows the UI language cookie on the request that asks
+  // for the link, sent through the real HTTP handler (plan email-i18n AC3).
+  it.each([
+    ["NEXT_LOCALE=en", "en"],
+    ["NEXT_LOCALE=es", "es"],
+    [null, "es"],
+    ["NEXT_LOCALE=fr", "es"],
+    ["theme=dark; NEXT_LOCALE=en", "en"],
+  ])("cookie %s sends the email in %s", async (cookie, expected) => {
+    const email = `locale-${randomUUID()}@example.com`;
+    const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const headers = new Headers({
+      "content-type": "application/json",
+      origin: baseURL,
+      "x-forwarded-for": REQUEST_IP,
+    });
+    if (cookie) {
+      headers.set("cookie", cookie);
+    }
+
+    const response = await auth.handler(
+      new Request(`${baseURL}/api/auth/sign-in/magic-link`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sentLinks.at(-1)).toMatchObject({ email, locale: expected });
+  });
 
   it("signs in a brand-new user (open sign-up) via the magic link", async () => {
     const { token } = await requestMagicLink("new-user@example.com");

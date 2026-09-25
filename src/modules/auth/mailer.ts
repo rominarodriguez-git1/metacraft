@@ -1,20 +1,17 @@
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
+import type { Locale } from "@/i18n/config";
+import { renderMagicLinkEmail } from "@/modules/auth/magic-link-email";
 
 export interface MagicLinkEmail {
   to: string;
   url: string;
+  /** The reader's language, resolved from the sign-in request. */
+  locale: Locale;
 }
 
 export interface Mailer {
   sendMagicLink(email: MagicLinkEmail): Promise<void>;
-}
-
-function subjectAndHtml(url: string): { subject: string; html: string } {
-  return {
-    subject: "Sign in to Metacraft",
-    html: `<p>Click the link below to sign in to Metacraft.</p><p><a href="${url}">${url}</a></p><p>This link expires in 15 minutes and can only be used once.</p>`,
-  };
 }
 
 const LOCAL_SMTP_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -38,8 +35,8 @@ function createSmtpMailer(): Mailer {
   });
 
   return {
-    async sendMagicLink({ to, url }: MagicLinkEmail): Promise<void> {
-      const { subject, html } = subjectAndHtml(url);
+    async sendMagicLink({ to, url, locale }: MagicLinkEmail): Promise<void> {
+      const { subject, html } = renderMagicLinkEmail(url, locale);
       await transport.sendMail({
         from: process.env.EMAIL_FROM,
         to,
@@ -54,8 +51,8 @@ function createResendMailer(apiKey: string): Mailer {
   const resend = new Resend(apiKey);
 
   return {
-    async sendMagicLink({ to, url }: MagicLinkEmail): Promise<void> {
-      const { subject, html } = subjectAndHtml(url);
+    async sendMagicLink({ to, url, locale }: MagicLinkEmail): Promise<void> {
+      const { subject, html } = renderMagicLinkEmail(url, locale);
       await resend.emails.send({
         from: process.env.EMAIL_FROM ?? "no-reply@metacraft.example",
         to,

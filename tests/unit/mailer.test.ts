@@ -35,7 +35,7 @@ describe("createMailer", () => {
 
     const { createMailer } = await import("@/modules/auth/mailer");
     const mailer = createMailer();
-    await mailer.sendMagicLink({ to: "user@example.com", url: "http://localhost:3000/verify" });
+    await mailer.sendMagicLink({ to: "user@example.com", url: "http://localhost:3000/verify", locale: "en" });
 
     expect(createTransportMock).toHaveBeenCalled();
     expect(sendMailMock).toHaveBeenCalled();
@@ -49,7 +49,7 @@ describe("createMailer", () => {
 
     const { createMailer } = await import("@/modules/auth/mailer");
     const mailer = createMailer();
-    await mailer.sendMagicLink({ to: "user@example.com", url: "http://localhost:3000/verify" });
+    await mailer.sendMagicLink({ to: "user@example.com", url: "http://localhost:3000/verify", locale: "en" });
 
     expect(resendConstructorMock).toHaveBeenCalledWith("re_test_key");
     expect(resendSendMock).toHaveBeenCalled();
@@ -70,5 +70,36 @@ describe("createMailer", () => {
     createMailer();
 
     expect(createTransportMock).toHaveBeenCalledWith(expect.objectContaining({ host, requireTLS }));
+  });
+
+  it.each([
+    ["es", "Iniciá sesión en Metacraft"],
+    ["en", "Sign in to Metacraft"],
+  ] as const)("the smtp mailer sends the %s subject", async (locale, subject) => {
+    vi.stubEnv("EMAIL_PROVIDER", "smtp");
+    vi.stubEnv("SMTP_HOST", "localhost");
+    vi.stubEnv("SMTP_PORT", "1025");
+
+    const { createMailer } = await import("@/modules/auth/mailer");
+    await createMailer().sendMagicLink({ to: "user@example.com", url: "http://localhost:3000/verify", locale });
+
+    expect(sendMailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ subject, html: expect.stringContaining(`lang="${locale}"`) }),
+    );
+  });
+
+  it.each([
+    ["es", "Iniciá sesión en Metacraft"],
+    ["en", "Sign in to Metacraft"],
+  ] as const)("the resend mailer sends the %s subject", async (locale, subject) => {
+    vi.stubEnv("EMAIL_PROVIDER", "resend");
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+
+    const { createMailer } = await import("@/modules/auth/mailer");
+    await createMailer().sendMagicLink({ to: "user@example.com", url: "http://localhost:3000/verify", locale });
+
+    expect(resendSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({ subject, html: expect.stringContaining(`lang="${locale}"`) }),
+    );
   });
 });
