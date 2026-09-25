@@ -48,6 +48,12 @@ Next.js (App Router) and TypeScript, PostgreSQL with Drizzle, pg-boss for backgr
 
    Sign in with any email address, then open the link that arrives in Mailpit.
 
+## Database migrations
+
+Migrations live in `drizzle/migrations` and are generated with `npm run db:generate` after a schema change in `src/db/schema`. They are **forward-only**: Drizzle has no down migrations, and none of the SQL files is reversible on its own. To undo a change, either write a new forward migration that reverts it, or restore the database from a backup taken before the migration ran. Take a backup before applying migrations to any shared or production database.
+
+`npm run db:migrate` reads `DATABASE_URL` from the environment, or from `.env` when it exists. There is no built-in connection string.
+
 ## Environment variables
 
 | Variable | Required | Purpose |
