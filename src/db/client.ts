@@ -1,10 +1,9 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "@/db/schema";
+import { requireDatabaseUrl } from "@/db/database-url";
 
-const DEFAULT_DATABASE_URL = "postgres://metacraft:metacraft@localhost:5432/metacraft";
-
-export function createDbClient(connectionString: string = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL): {
+export function createDbClient(connectionString: string = requireDatabaseUrl()): {
   pool: Pool;
   db: NodePgDatabase<typeof schema>;
 } {
@@ -13,7 +12,23 @@ export function createDbClient(connectionString: string = process.env.DATABASE_U
   return { pool, db };
 }
 
-const client = createDbClient();
+let client: ReturnType<typeof createDbClient> | undefined;
 
-export const pool = client.pool;
-export const db = client.db;
+function getClient(): ReturnType<typeof createDbClient> {
+  client ??= createDbClient();
+  return client;
+}
+
+/**
+ * The shared Drizzle client, created on first use rather than at import, so
+ * that importing a route module (as `next build` does while collecting page
+ * data) never requires DATABASE_URL. The first actual query does, and throws
+ * MissingDatabaseUrlError when it is not set.
+ */
+export const db: NodePgDatabase<typeof schema> = new Proxy({} as NodePgDatabase<typeof schema>, {
+  get(_target, property) {
+    const real = getClient().db;
+    const value = Reflect.get(real, property, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});

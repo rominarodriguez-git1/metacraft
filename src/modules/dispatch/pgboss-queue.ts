@@ -1,8 +1,8 @@
 import { PgBoss } from "pg-boss";
+import { requireDatabaseUrl } from "@/db/database-url";
 import { logger } from "@/lib/logger";
 import type { DispatchQueue } from "@/modules/dispatch/queue-port";
 
-const DEFAULT_DATABASE_URL = "postgres://metacraft:metacraft@localhost:5432/metacraft";
 // The "exclusive" policy keeps at most one created/retry/active job per
 // singletonKey, and every job is keyed by its dispatchId. Re-enqueueing a
 // dispatch (the stale-dispatch sweeper, a retried submit) therefore never
@@ -43,7 +43,7 @@ let bossSingleton: PgBoss | undefined;
 
 function getBoss(): PgBoss {
   if (!bossSingleton) {
-    const connectionString = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+    const connectionString = requireDatabaseUrl();
     bossSingleton = new PgBoss({ connectionString, schema: pgBossSchema(), useListenNotify: true });
     bossSingleton.on("error", (error: unknown) => {
       logger.error("pg-boss error", { error });
